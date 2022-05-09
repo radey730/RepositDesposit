@@ -1,0 +1,230 @@
+package friends;
+
+import java.util.ArrayList;
+
+import structures.Queue;
+import structures.Stack;
+
+public class Friends {
+
+	/**
+	 * Finds the shortest chain of people from p1 to p2.
+	 * Chain is returned as a sequence of names starting with p1,
+	 * and ending with p2. Each pair (n1,n2) of consecutive names in
+	 * the returned chain is an edge in the graph.
+	 * 
+	 * @param g Graph for which shortest chain is to be found.
+	 * @param p1 Person with whom the chain originates
+	 * @param p2 Person at whom the chain terminates
+	 * @return The shortest chain from p1 to p2. Null or empty array list if there is no
+	 *         path from p1 to p2
+	 */
+	public static ArrayList<String> shortestChain(Graph g, String p1, String p2) {
+		/** COMPLETE THIS METHOD **/
+		Person[] persons = g.members;
+		int start = g.map.get(p1);
+		int end = g.map.get(p2);
+		int[] distances = new int[persons.length];
+		int[] lastp = new int[persons.length];
+		
+		for(int i = 0;i < distances.length;i++) {
+			distances[i] = Integer.MAX_VALUE;
+			lastp[i] = -1;
+		}
+		distances[start] = 0;
+		
+		ArrayList<Integer> fnums = new ArrayList<Integer>();
+		fnums.add(start);
+		while(!fnums.isEmpty()) {
+			
+			int min = fnums.get(0);
+			int index = 0;
+			for(int i = 1;i < fnums.size();i++) {
+				if(distances[fnums.get(i)] < distances[min]) {
+					min = fnums.get(i);
+					index = i;
+				}
+			}
+			if(persons[min].name.equals(p2)) {
+				fnums.remove(index);
+				continue;
+			}
+			
+			Friend first = persons[min].first;
+			while(first != null) {
+				if(distances[first.fnum] == Integer.MAX_VALUE) {
+					distances[first.fnum] = distances[min] + 1;
+					lastp[first.fnum] = min;
+					fnums.add(first.fnum);
+				}
+				else {
+					
+					if(distances[first.fnum] > distances[min] + 1) {
+						distances[first.fnum] = distances[min] + 1;
+						lastp[first.fnum] = min;
+					}
+				}
+				first = first.next;
+			}
+			fnums.remove(index);
+		}
+		
+		System.out.println("Distance from " + p1);
+		for(int i = 0;i < persons.length;i++) {
+			if(distances[i] == Integer.MAX_VALUE) continue;
+			System.out.println("(" + persons[i].name + "--" + distances[i] + ")");	
+		}
+		System.out.println("Last persons");
+		for(int i = 0;i < persons.length;i++) {
+			if(distances[i] == Integer.MAX_VALUE) continue;
+			if(lastp[i] == -1) { 
+				System.out.println(persons[i].name + "--" + persons[i].name);
+				continue;
+			}
+			System.out.println("(" + persons[i].name + "--" + persons[lastp[i]].name + ")");	
+		}
+		
+		if(lastp[end] == -1) return null;
+		
+		Stack<String> stack = new Stack<String>();
+		stack.push(persons[end].name);
+		int last = lastp[end];
+		while(last != -1) {
+			stack.push(persons[last].name);
+			last = lastp[last];
+		}
+		
+		ArrayList<String> chain = new ArrayList<String>();
+		while(!stack.isEmpty()) {
+			chain.add(stack.pop());
+		}
+		return chain;
+	}
+	
+	
+	/**
+	 * Finds all cliques of students in a given school.
+	 * 
+	 * Returns an array list of array lists - each constituent array list contains
+	 * the names of all students in a clique.
+	 * 
+	 * @param g Graph for which cliques are to be found.
+	 * @param school Name of school
+	 * @return Array list of clique array lists. Null or empty array list if there is no student in the
+	 *         given school
+	 */
+	public static ArrayList<ArrayList<String>> cliques(Graph g, String school) {
+		/** COMPLETE THIS METHOD **/
+		ArrayList<ArrayList<String>> cliques = new ArrayList<ArrayList<String>>();
+		
+		Person[] persons = g.members;
+		boolean[] visited = new boolean[persons.length];
+		
+		for(int i = 0;i < visited.length;i++) {
+			if(!visited[i]) {
+				if(persons[i].student && persons[i].school.equals(school)) {
+					System.out.println("Visiting " + persons[i].name);
+					cliques.add(cliquebfs(i,visited,persons));
+				}
+			}
+		}
+		System.out.println("Visted: ");
+		for(int i = 0;i < visited.length;i++) {
+			if(visited[i]) {
+				System.out.println(persons[i].name);
+			}
+		}
+		
+		return cliques;
+		
+	}
+	
+	//helper method for cliques
+	private static ArrayList<String> cliquebfs(int start,boolean[] visited,Person[] persons){
+		ArrayList<String> list = new ArrayList<String>();
+		Queue<Person> queue = new Queue<Person>();
+		queue.enqueue(persons[start]);
+		visited[start] = true;
+		while(!queue.isEmpty()) {
+			Person p = queue.dequeue();
+			for(Friend f = p.first;f != null;f = f.next) {
+				int fnum = f.fnum;
+				if(persons[fnum].student && !visited[fnum] && persons[fnum].school.equals(p.school)) {
+					queue.enqueue(persons[f.fnum]);
+					visited[fnum] = true;
+				}
+			}
+			
+			list.add(p.name);
+		}
+		
+		return list;
+	}
+	
+	/**
+	 * Finds and returns all connectors in the graph.
+	 * 
+	 * @param g Graph for which connectors needs to be found.
+	 * @return Names of all connectors. Null or empty array list if there are no connectors.
+	 */
+	public static ArrayList<String> connectors(Graph g) {
+		/** COMPLETE THIS METHOD **/
+		
+		Person[] persons = g.members;
+		boolean[] visited = new boolean[persons.length];
+		boolean[] connectors = new boolean[persons.length];
+		int[] dfsnum = new int[persons.length];
+		int[] back = new int[persons.length];
+		
+		for(int v = 0;v < visited.length;v++) {
+			if(!visited[v]) {
+				dfsnum[v] = 1;
+				back[v] = 1;
+				connectorsdfs(v,visited,persons,dfsnum,back,connectors);
+			}
+			
+		}
+		
+		ArrayList<String> list = new ArrayList<String>();
+		for(int i = 0;i < connectors.length;i++) {
+			if(connectors[i]) {
+				list.add(persons[i].name);
+			}
+		}
+		
+		return list;
+	}
+	
+	//helper method for connectors
+	private static void connectorsdfs(int v,boolean[] visited,Person[] persons,int[] dfsnum,int[] back,boolean[] connectors) {
+		
+		
+		visited[v] = true;
+		int count = 0;
+		for(Friend w = persons[v].first;w != null;w = w.next) {
+			if(!visited[w.fnum]) {
+				dfsnum[w.fnum] = dfsnum[v] + 1;
+				back[w.fnum] = dfsnum[w.fnum];
+				
+				connectorsdfs(w.fnum,visited,persons,dfsnum,back,connectors);
+				
+				if(dfsnum[v] <= back[w.fnum]) {					
+					if((dfsnum[v] != 1 || back[v] != 1) || count >= 1) {
+						connectors[v] = true;
+					}
+					count++;
+				}
+				else {
+					back[v] = Math.min(back[v],back[w.fnum]);
+				}
+			}
+			else {
+				back[v] = Math.min(back[v],dfsnum[w.fnum]);
+			}
+			
+		}
+		
+	}
+	
+}
+
